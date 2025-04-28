@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot InteligentnyInaczej</title>
+    <style>
+        /* Ogólne ustawienia */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f4f8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        .chat-container {
+            background: #fff;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Nagłówek */
+        .chat-header {
+            background: linear-gradient(135deg, #4a90e2, #357ab7);
+            color: #fff;
+            padding: 15px;
+            text-align: center;
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+        /* Okno czatu */
+        #chatWindow {
+            flex: 1;
+            padding: 15px;
+            background: #eef2f5;
+            overflow-y: auto;
+        }
+        .message {
+            margin: 10px 0;
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 20px;
+            position: relative;
+            word-wrap: break-word;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .bot {
+            background: #d1e7ff;
+            color: #333;
+            align-self: flex-start;
+        }
+        .user {
+            background: #4a90e2;
+            color: #fff;
+            align-self: flex-end;
+        }
+        .botWarning {
+            background: #ffcccc;
+            color: #a00;
+            align-self: flex-start;
+        }
+        /* Panel wejścia */
+        .chat-input {
+            display: flex;
+            border-top: 1px solid #ddd;
+        }
+        #chatInput {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            outline: none;
+            font-size: 1em;
+            border-right: 1px solid #ddd;
+        }
+        #sendButton {
+            padding: 15px 20px;
+            border: none;
+            background: #4a90e2;
+            color: #fff;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        #sendButton:hover {
+            background: #357ab7;
+        }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <div class="chat-header">Bot InteligentnyInaczej</div>
+    <div id="chatWindow">
+        <!-- Wiadomość powitalna -->
+        <div class="message bot">Cześć, jak tam zajęcia z JS?</div>
+    </div>
+    <div class="chat-input">
+        <input type="text" id="chatInput" placeholder="Wpisz wiadomość...">
+        <button id="sendButton">Wyślij</button>
+    </div>
+</div>
+
+<script>
+    const chatWindow = document.getElementById("chatWindow");
+    const chatInput = document.getElementById("chatInput");
+    const sendButton = document.getElementById("sendButton");
+
+    // Lista zabronionych słów
+    const forbiddenWords = ["motyla noga"];
+
+    // Funkcja dodająca wiadomość do okna rozmowy
+    function addMessage(text, sender, additionalClass = "") {
+        const messageDiv = document.createElement("div");
+        messageDiv.className = "message " + sender + " " + additionalClass;
+        messageDiv.textContent = text;
+        chatWindow.appendChild(messageDiv);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    // Funkcja generująca deterministyczną odpowiedź bota na podstawie tekstu użytkownika
+    // (dla wiadomości nie będących komendą pogody)
+    function getBotResponse(userText) {
+        if (userText === "/version") {
+            return "Wersja oprogramowania: v1.2.3";
+        } else if (userText.toLowerCase().startsWith("/")) {
+            return "Nie ma takiej komendy";
+        }
+        // Deterministyczny wybór odpowiedzi na podstawie prostego hashowania
+        let hash = 0;
+        for (let i = 0; i < userText.length; i++) {
+            hash += userText.charCodeAt(i);
+        }
+        const responses = [
+            "Interesujące, opowiedz więcej.",
+            "Rozumiem, kontynuuj proszę.",
+            "To naprawdę fascynujące!"
+        ];
+        return responses[hash % responses.length];
+    }
+
+    // Funkcja symulująca opóźnienie przed odpowiedzią bota z animacją ładowania
+    function botReply(userText) {
+        // Dodaj tymczasową wiadomość jako wskaźnik ładowania
+        const loadingMessage = document.createElement("div");
+        loadingMessage.className = "message bot";
+        loadingMessage.textContent = "Bot myśli";
+        chatWindow.appendChild(loadingMessage);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+
+        // Animacja "typing" z pojawiającymi się kropkami
+        let dots = 0;
+        const intervalId = setInterval(function() {
+            dots = (dots + 1) % 4;
+            loadingMessage.textContent = "Bot myśli" + ".".repeat(dots);
+        }, 500);
+
+        // Sprawdź, czy użytkownik wywołuje komendę pogody
+        if (userText.toLowerCase().startsWith("/pogoda")) {
+            // Wyodrębnij lokalizację z komendy, np. "/pogoda Kraków"
+            const locationName = userText.slice(7).trim();
+            if (!locationName) {
+                clearInterval(intervalId);
+                chatWindow.removeChild(loadingMessage);
+                addMessage("Podaj nazwę lokalizacji po komendzie /pogoda.", "bot");
+                return;
+            }
+            // Użyj Open-Meteo Geocoding API, aby wyszukać lokalizację
+            fetch("https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(locationName))
+                .then(response => response.json())
+                .then(geoData => {
+                    if (geoData.results && geoData.results.length > 0) {
+                        const locationData = geoData.results[0];
+                        const lat = locationData.latitude;
+                        const lon = locationData.longitude;
+                        // Następnie wywołaj API Open-Meteo, aby pobrać aktualną pogodę
+                        fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`)
+                            .then(response => response.json())
+                            .then(weatherData => {
+                                clearInterval(intervalId);
+                                chatWindow.removeChild(loadingMessage);
+                                if (weatherData.current_weather) {
+                                    const temperature = weatherData.current_weather.temperature;
+                                    const windspeed = weatherData.current_weather.windspeed;
+                                    addMessage(`W ${locationData.name} jest ${temperature}°C, wiatr: ${windspeed} km/h.`, "bot");
+                                } else {
+                                    addMessage("Nie udało się pobrać pogody dla tej lokalizacji.", "bot");
+                                }
+                            })
+                            .catch(err => {
+                                clearInterval(intervalId);
+                                chatWindow.removeChild(loadingMessage);
+                                addMessage("Błąd pobierania pogody.", "bot");
+                            });
+                    } else {
+                        clearInterval(intervalId);
+                        chatWindow.removeChild(loadingMessage);
+                        addMessage("Nie znaleziono lokalizacji.", "bot");
+                    }
+                })
+                .catch(err => {
+                    clearInterval(intervalId);
+                    chatWindow.removeChild(loadingMessage);
+                    addMessage("Błąd podczas wyszukiwania lokalizacji.", "bot");
+                });
+        } else if (userText.toLowerCase().startsWith("/version")) {
+            if (userText === "/version") {
+                return "Wersja oprogramowania: v1.2.3";
+            }
+        } else {
+            // Dla pozostałych wiadomości bot odpowiada po opóźnieniu 3 sekund
+            setTimeout(function() {
+                clearInterval(intervalId);
+                chatWindow.removeChild(loadingMessage);
+                const response = getBotResponse(userText);
+                addMessage(response, "bot");
+            }, 3000);
+        }
+    }
+
+    // Funkcja przetwarzająca wpisaną wiadomość
+    function processInput() {
+        const userText = chatInput.value.trim();
+        if (userText === "") return;
+
+        // Wykrywanie wulgaryzmów
+        const lowerText = userText.toLowerCase();
+        for (let word of forbiddenWords) {
+            if (lowerText.includes(word)) {
+                alert("Używasz zabronionych słów!");
+                addMessage("proszę, nie używaj takich słów", "bot", "botWarning");
+                chatInput.value = "";
+                return;
+            }
+        }
+
+        // Dodanie wiadomości użytkownika do okna czatu
+        addMessage(userText, "user");
+        chatInput.value = "";
+        // Wywołanie odpowiedzi bota z opóźnieniem i animacją
+        botReply(userText);
+    }
+
+    // Obsługa kliknięcia przycisku
+    sendButton.addEventListener("click", processInput);
+    // Obsługa klawisza Enter
+    chatInput.addEventListener("keydown", function(event) {
+        if (event.key === "Enter") {
+            processInput();
+        }
+    });
+</script>
+
+</body>
+</html>
